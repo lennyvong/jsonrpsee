@@ -397,7 +397,11 @@ where
 
 			let rp = ResponseSuccess::try_from(method_response.into_inner())?;
 
-			let result = serde_json::from_str(rp.result.get()).map_err(Error::ParseError)?;
+			let mut deserializer = serde_json::Deserializer::from_str(rp.result.get());
+			deserializer.disable_recursion_limit();
+			let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
+			let result = R::deserialize(deserializer).map_err(Error::ParseError)?;
+
 			if rp.id == id { Ok(result) } else { Err(InvalidRequestId::NotPendingRequest(rp.id.to_string()).into()) }
 		}
 	}
