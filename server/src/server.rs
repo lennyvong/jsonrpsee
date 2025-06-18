@@ -993,7 +993,7 @@ where
 	}
 
 	fn call(&mut self, request: HttpRequest<Body>) -> Self::Future {
-		let mut request = request.map(HttpBody::new);
+		let mut request = request.map(|_| HttpBody::empty());
 
 		let conn_guard = &self.inner.conn_guard;
 		let stop_handle = self.inner.stop_handle.clone();

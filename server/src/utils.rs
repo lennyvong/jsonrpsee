@@ -57,7 +57,7 @@ where
 	type Future = TowerToHyperServiceFuture<S, HttpRequest>;
 
 	fn call(&self, req: HttpRequest<hyper::body::Incoming>) -> Self::Future {
-		let req = req.map(HttpBody::new);
+		let req = req.map(|_| HttpBody::empty());
 		TowerToHyperServiceFuture { future: self.service.clone().oneshot(req) }
 	}
 }

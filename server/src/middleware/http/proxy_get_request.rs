@@ -199,7 +199,7 @@ where
 			}
 			// Call the inner service and get a future that resolves to the response.
 			_ => {
-				let req = req.map(HttpBody::new);
+				let req = req.map(|_| HttpBody::empty());
 				self.inner.call(req).map_err(Into::into).boxed()
 			}
 		}

@@ -31,6 +31,7 @@ use bytes::{Buf, Bytes};
 use http_body::Frame;
 use http_body_util::{BodyExt, Limited};
 use std::{
+	convert::Infallible,
 	pin::Pin,
 	task::{Context, Poll},
 };
@@ -41,8 +42,8 @@ pub type Request<T = Body> = http::Request<T>;
 pub type Response<T = Body> = http::Response<T>;
 
 /// Default HTTP body used by jsonrpsee.
-#[derive(Debug, Default)]
-pub struct Body(http_body_util::combinators::UnsyncBoxBody<Bytes, BoxError>);
+#[derive(Debug, Default, Clone)]
+pub struct Body(http_body_util::Full<Bytes>);
 
 impl Body {
 	/// Create an empty body.
@@ -51,40 +52,32 @@ impl Body {
 	}
 
 	/// Create a new body.
-	pub fn new<B>(body: B) -> Self
-	where
-		B: http_body::Body<Data = Bytes> + Send + 'static,
-		B::Data: Send + 'static,
-		B::Error: Into<BoxError>,
-	{
-		Self(body.map_err(|e| e.into()).boxed_unsync())
+	pub fn new_from_bytes(bytes: Bytes) -> Self {
+		Self(http_body_util::Full::new(bytes))
 	}
 }
 
 impl From<String> for Body {
 	fn from(s: String) -> Self {
-		let body = http_body_util::Full::from(s);
-		Self::new(body)
+		Self::new_from_bytes(Bytes::from(s))
 	}
 }
 
 impl From<&'static str> for Body {
 	fn from(s: &'static str) -> Self {
-		let body = http_body_util::Full::from(s);
-		Self::new(body)
+		Self::new_from_bytes(Bytes::from(s))
 	}
 }
 
 impl From<Vec<u8>> for Body {
 	fn from(bytes: Vec<u8>) -> Self {
-		let body = http_body_util::Full::from(bytes);
-		Self::new(body)
+		Self::new_from_bytes(Bytes::from(bytes))
 	}
 }
 
 impl http_body::Body for Body {
 	type Data = Bytes;
-	type Error = BoxError;
+	type Error = Infallible;
 
 	#[inline]
 	fn poll_frame(
@@ -203,11 +196,7 @@ fn read_header_content_length(headers: &http::header::HeaderMap) -> Option<u32> 
 pub fn read_header_value(headers: &http::header::HeaderMap, header_name: http::header::HeaderName) -> Option<&str> {
 	let mut values = headers.get_all(header_name).iter();
 	let val = values.next()?;
-	if values.next().is_none() {
-		val.to_str().ok()
-	} else {
-		None
-	}
+	if values.next().is_none() { val.to_str().ok() } else { None }
 }
 
 /// Returns an iterator of all values for a given a header name
@@ -220,7 +209,7 @@ pub fn read_header_values<'a>(
 
 #[cfg(test)]
 mod tests {
-	use super::{read_body, read_header_content_length, HttpError};
+	use super::{HttpError, read_body, read_header_content_length};
 	use http_body_util::BodyExt;
 
 	type Body = http_body_util::Full<bytes::Bytes>;
